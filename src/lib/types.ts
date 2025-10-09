@@ -2,13 +2,13 @@ export interface PurchaseOrder {
   id: string;
   itemCode: string;
   factoryId: number;
-  status: 'In Production' | 'Completed' | 'Delayed' | 'Shipped';
+  status: string; // Simplified from enum for broader data
 }
 
 export interface Factory {
   id: number;
   name: string;
-  location: string;
+  location: string; // Location can be derived or kept static
   sections: string[];
 }
 
@@ -18,6 +18,9 @@ export interface InspectionParameter {
   unit: string;
   operator: string;
   timestamp: string;
+  lsl?: number;
+  usl?: number;
+  target?: number;
 }
 
 export interface Inspection {
@@ -28,15 +31,9 @@ export interface Inspection {
   itemCode: string;
   type: 'Inward' | 'In-process' | 'Final';
   parameters: InspectionParameter[];
+  operationName?: string;
+  summary?: {
+    accepted: number;
+    rejected: number;
+  }
 }
-
-export type ChatMessage = {
-  id: string;
-  role: 'user' | 'bot';
-  content: React.ReactNode;
-};
-
-export type Option = {
-  label: string;
-  value: string;
-};

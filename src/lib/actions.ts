@@ -8,30 +8,29 @@ const simulateLatency = () => new Promise(res => setTimeout(res, 300 + Math.rand
 
 export async function getInitialData() {
   await simulateLatency();
-  // Using predefined static data to avoid any processing errors.
   return {
     factories: [
-        { label: 'Alpha Manufacturing', value: '1' },
-        { label: 'Beta Components', value: '2' },
-        { label: 'Gamma Assembly', value: '3' }
+        { label: 'AMMUNITION FACTORY KHADKI', value: '1' },
+        { label: 'ORDNANCE FACTORY DEHUROAD', value: '2' },
     ],
     purchaseOrders: [
-        { label: 'PO-001', value: 'PO-001' },
-        { label: 'PO-002', value: 'PO-002' },
-        { label: 'PO-003', value: 'PO-003' },
-        { label: 'PO-004', value: 'PO-004' },
-        { label: 'PO-005', value: 'PO-005' }
+        { label: '1004', value: '1004' },
+        { label: 'D-2074', value: 'D-2074' },
+        { label: 'D-2069', value: 'D-2069' },
+        { label: 'D-2070', value: 'D-2070' },
     ],
     itemCodes: [
-        { label: 'IC-456', value: 'IC-456' },
-        { label: 'TR-789', value: 'TR-789' },
-        { label: 'PS-101', value: 'PS-101' }
+        { label: '5514634032', value: '5514634032' },
+        { label: '1000000014', value: '1000000014' },
+        { label: '1000000013', value: '1000000013' },
     ],
     parameters: [
-        { label: 'Diameter', value: 'Diameter' },
-        { label: 'Resistance', value: 'Resistance' },
-        { label: 'Capacitance', value: 'Capacitance' },
-        { label: 'Voltage', value: 'Voltage' }
+        { label: 'VISUAL', value: 'VISUAL' },
+        { label: 'Strength', value: 'Strength' },
+        { label: 'Charge Mass of compo. ME-433', value: 'Charge Mass of compo. ME-433' },
+        { label: 'Weight of Mg.Powder', value: 'Weight of Mg.Powder' },
+        { label: 'Check Filled box 37A, Container, Pickets, 75 A', value: 'Check Filled box 37A, Container, Pickets, 75 A' },
+        { label: 'Verification of Acceptance details', value: 'Verification of Acceptance details' },
     ],
   };
 }
