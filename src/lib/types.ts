@@ -37,3 +37,14 @@ export interface Inspection {
     rejected: number;
   }
 }
+
+export interface Option {
+  label: string;
+  value: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'bot';
+  content: React.ReactNode;
+}

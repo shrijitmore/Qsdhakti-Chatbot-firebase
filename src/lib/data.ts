@@ -94,6 +94,30 @@ export const inspections: Inspection[] = [
     ],
   },
   {
+    id: '7',
+    poId: 'D-2070',
+    factoryId: 2,
+    section: '134',
+    itemCode: '1000000013',
+    type: 'Inward',
+    summary: { accepted: 2, rejected: 0},
+    parameters: [
+       { name: 'Verification of Acceptance details', value: 1, unit: 'bool', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 7)) },
+    ],
+  },
+  {
+    id: '8',
+    poId: 'D-2070',
+    factoryId: 2,
+    section: '134',
+    itemCode: '1000000013',
+    type: 'Inward',
+    summary: { accepted: 2, rejected: 1},
+    parameters: [
+       { name: 'Verification of Acceptance details', value: 0, unit: 'bool', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 8)) },
+    ],
+  },
+  {
     id: '9',
     poId: 'D-2070',
     factoryId: 2,
@@ -107,4 +131,71 @@ export const inspections: Inspection[] = [
         { name: 'Verification of Acceptance details', value: 52, unit: 'rating', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 9)), lsl: 51, target: 57, usl: 57 },
     ]
   },
+  {
+    id: '10',
+    poId: 'D-2070',
+    factoryId: 2,
+    section: '134',
+    itemCode: '1000000013',
+    type: 'Final',
+    operationName: 'Mixing of Compo.ME-425',
+    parameters: [
+        { name: 'Check Dwell time', value: 0, unit: 'bool', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 10)) },
+        { name: 'Check Dwell time', value: 1, unit: 'bool', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 10)) },
+        { name: 'Check Dwell time', value: 1, unit: 'bool', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 10)) },
+    ]
+  },
+  {
+    id: '11',
+    poId: 'D-2070',
+    factoryId: 2,
+    section: '134',
+    itemCode: '1000000013',
+    type: 'Final',
+    operationName: 'Mixing of Compo.ME-425',
+    parameters: [
+        { name: 'Wt. of SMP', value: 2, unit: 'gm', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 11)) },
+    ]
+  },
+  {
+    id: '12',
+    poId: 'D-2070',
+    factoryId: 2,
+    section: '134',
+    itemCode: '1000000013',
+    type: 'Final',
+    operationName: 'Mixing of Compo.ME-425',
+    parameters: [
+        { name: 'Check Crimping Strength', value: 1, unit: 'bool', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 12)) },
+        { name: 'Check Crimping Strength', value: 1, unit: 'bool', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 12)) },
+        { name: 'Check Crimping Strength', value: 1, unit: 'bool', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 12)) },
+    ]
+  },
+  {
+    id: '13',
+    poId: 'D-2070',
+    factoryId: 2,
+    section: '134',
+    itemCode: '1000000013',
+    type: 'Final',
+    operationName: 'Mixing of Compo.ME-425',
+    parameters: [
+        { name: 'Check Proper Crimping, Ferrule Crack', value: 1, unit: 'bool', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 13)) },
+        { name: 'Check Proper Crimping, Ferrule Crack', value: 1, unit: 'bool', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 13)) },
+    ]
+  },
+  {
+    id: '14',
+    poId: 'D-2070',
+    factoryId: 2,
+    section: '134',
+    itemCode: '1000000013',
+    type: 'Final',
+    operationName: 'Mixing of Compo.ME-425',
+    parameters: [
+        { name: 'Weight of BLO', value: 1, unit: 'bool', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 14)) },
+        { name: 'Weight of BLO', value: 0, unit: 'bool', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 14)) },
+        { name: 'Weight of BLO', value: 0, unit: 'bool', operator: 'Arpit Dehu Road', timestamp: formatISO(subDays(new Date(), 14)) },
+    ]
+  }
 ];

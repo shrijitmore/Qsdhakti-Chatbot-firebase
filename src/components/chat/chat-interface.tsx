@@ -8,28 +8,34 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { ChatMessages } from './chat-messages';
 import { TableDisplay } from './table-display';
-import { ChartDisplay, RunChartStats } from './chart-display';
-import { Card, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { BotCard } from './bot-card';
 
 type ConversationStep =
   | 'start'
-  | 'po_status_select'
-  | 'inspection_details_select_factory'
-  | 'inspection_details_select_section'
-  | 'inspection_details_select_item'
-  | 'inspection_details_select_type'
-  | 'inspection_details_select_po'
-  | 'param_analysis_select_param'
-  | 'param_analysis_select_duration'
+  | 'po_status_select_factory'
+  | 'po_status_select_po'
+  | 'inspection_select_type'
+  | 'inspection_select_factory'
+  | 'inspection_select_section'
+  | 'inspection_select_item'
+  | 'inspection_select_po'
+  | 'param_analysis_select_factory'
+  | 'param_analysis_select_item'
+  | 'param_analysis_select_operation'
+  | 'param_analysis_select_parameter'
+  | 'param_dist_select_context'
+  | 'param_dist_select_factory'
+  | 'param_dist_select_section'
   | 'param_dist_select_item'
-  | 'param_dist_select_param'
   | 'end';
 
 const MAIN_OPTIONS: Option[] = [
-  { label: 'Query PO Status', value: 'po_status' },
-  { label: 'Retrieve Inspection Details', value: 'inspection_details' },
-  { label: 'Analyze Inspection Parameters', value: 'param_analysis' },
-  { label: 'View Parameter Distribution', value: 'param_dist' },
+  { label: 'Production Order (PO) Status', value: 'po_status' },
+  { label: 'Inward Material Quality Inspection', value: 'inward_inspection' },
+  { label: 'In-process Inspection', value: 'in_process_inspection' },
+  { label: 'Final Inspection / FAI Inspection Details', value: 'final_inspection' },
+  { label: 'Inspection Parameter Wise Analysis', value: 'param_analysis' },
+  { label: 'Distribution of Captured Inspection Parameter', value: 'param_dist' },
 ];
 
 export default function ChatInterface() {
@@ -43,11 +49,11 @@ export default function ChatInterface() {
 
   useEffect(() => {
     startTransition(() => {
-        setIsBotTyping(true);
-        actions.getInitialData().then(data => {
-            setInitialData(data);
-            addBotMessage("Welcome to the Quality Insights Chatbot! How can I assist you today?", MAIN_OPTIONS, handleMainOptionSelect);
-        }).finally(() => setIsBotTyping(false));
+      setIsBotTyping(true);
+      actions.getInitialData().then(data => {
+        setInitialData(data);
+        addBotMessage("Welcome to the Quality Insights Chatbot! How can I assist you today?", MAIN_OPTIONS, handleMainOptionSelect);
+      }).finally(() => setIsBotTyping(false));
     });
   }, []);
 
@@ -72,6 +78,10 @@ export default function ChatInterface() {
     );
     addMessage('bot', content);
   };
+
+  const addUserMessage = (text: string) => {
+    addMessage('user', text);
+  };
   
   const handleMainOptionSelect = (option: Option) => {
     if (!initialData) {
@@ -85,45 +95,63 @@ export default function ChatInterface() {
     addUserMessage(option.label);
     setIsBotTyping(true);
     startTransition(() => {
+      let inspectionType = '';
+      if(option.value.includes('inspection')){
+        const type = option.value.split('_')[0];
+        inspectionType = type.charAt(0).toUpperCase() + type.slice(1);
+        setSessionData({ inspectionType });
+        setCurrentStep('inspection_select_factory');
+        addBotMessage(`Let's retrieve ${inspectionType} inspection details. First, please select a factory:`, initialData.factories, handleInspectionDetails);
+        setIsBotTyping(false);
+        return;
+      }
+
       switch (option.value) {
         case 'po_status':
-          setCurrentStep('po_status_select');
-          addBotMessage("Please select a Purchase Order number:", initialData.purchaseOrders, handlePoStatusSelect);
-          break;
-        case 'inspection_details':
-          setCurrentStep('inspection_details_select_factory');
-          addBotMessage("Let's retrieve inspection details. First, please select a factory:", initialData.factories, handleInspectionDetails);
+          setCurrentStep('po_status_select_factory');
+          addBotMessage("Select the factory for which you want to see PO number status.", initialData.factories, handlePoStatus);
           break;
         case 'param_analysis':
-          setCurrentStep('param_analysis_select_param');
-          addBotMessage("Which inspection parameter would you like to analyze?", initialData.parameters, handleParamAnalysis);
+          setCurrentStep('param_analysis_select_factory');
+          addBotMessage("For parameter analysis, first select a factory:", initialData.factories, handleParamAnalysis);
           break;
         case 'param_dist':
-          setCurrentStep('param_dist_select_item');
-          addBotMessage("Let's view a parameter distribution. First, please select an item code:", initialData.itemCodes, handleParamDistribution);
+          setCurrentStep('param_dist_select_context');
+          const contexts = [{label: 'Inward', value: 'Inward'}, {label: 'In-process', value: 'In-process'}, {label: 'Final', value: 'Final'}];
+          addBotMessage("Select the context for distribution:", contexts, handleParamDistribution);
           break;
       }
       setIsBotTyping(false);
     });
   };
 
-  const addUserMessage = (text: string) => {
-    addMessage('user', text);
-  };
-  
-  const handlePoStatusSelect = (option: Option) => {
+  const handlePoStatus = (option: Option) => {
     addUserMessage(option.label);
     setIsBotTyping(true);
+    const newSessionData = { ...sessionData, [currentStep]: option.value };
+    setSessionData(newSessionData);
+    
     startTransition(async () => {
-      const po = await actions.getPurchaseOrderStatus(option.value);
-      if (po) {
-        addMessage('bot', <TableDisplay title={`Status for ${po.id}`} headers={['PO ID', 'Item Code', 'Factory ID', 'Status']} rows={[[po.id, po.itemCode, po.factoryId, po.status]]} />)
-      } else {
-        addBotMessage("Sorry, I couldn't find that purchase order.");
-      }
-      showEnd();
+        switch (currentStep) {
+            case 'po_status_select_factory':
+                setCurrentStep('po_status_select_po');
+                const poOptions = initialData.getPurchaseOrders(parseInt(option.value));
+                addBotMessage("Select a PO Number:", poOptions, handlePoStatus);
+                break;
+            case 'po_status_select_po':
+                const result = await actions.getPurchaseOrderStatus(option.value);
+                if (result) {
+                    const rows = Object.entries(result).map(([key, value]) => [key, value]);
+                    addMessage('bot', <TableDisplay title={`Status for PO ${option.value}`} headers={['Property', 'Value']} rows={rows} />);
+                } else {
+                    addBotMessage(`Sorry, I couldn't find details for PO ${option.value}.`);
+                }
+                showEnd();
+                break;
+        }
+        setIsBotTyping(false);
     });
-  }
+  };
 
   const handleInspectionDetails = (option: Option) => {
     addUserMessage(option.label);
@@ -133,36 +161,33 @@ export default function ChatInterface() {
     
     startTransition(async () => {
       switch (currentStep) {
-        case 'inspection_details_select_factory':
-          setCurrentStep('inspection_details_select_section');
+        case 'inspection_select_factory':
+          setCurrentStep('inspection_select_section');
           const sections = await actions.getFactorySections(parseInt(option.value));
           addBotMessage("Great. Now select a section/building:", sections, handleInspectionDetails);
           break;
-        case 'inspection_details_select_section':
-          setCurrentStep('inspection_details_select_item');
-          addBotMessage("Select an item code:", initialData.itemCodes, handleInspectionDetails);
+        case 'inspection_select_section':
+          setCurrentStep('inspection_select_item');
+          const itemCodes = initialData.getItemCodes(parseInt(newSessionData.inspection_select_factory), option.value);
+          addBotMessage("Select an item code:", itemCodes, handleInspectionDetails);
           break;
-        case 'inspection_details_select_item':
-          setCurrentStep('inspection_details_select_type');
-          const types = [{label: 'Inward', value: 'Inward'}, {label: 'In-process', value: 'In-process'}, {label: 'Final', value: 'Final'}];
-          addBotMessage("Select an inspection type:", types, handleInspectionDetails);
+        case 'inspection_select_item':
+          setCurrentStep('inspection_select_po');
+          const poOptions = initialData.getPurchaseOrders(parseInt(newSessionData.inspection_select_factory));
+          addBotMessage("Finally, select a PO Number / Lot No.:", poOptions, handleInspectionDetails);
           break;
-        case 'inspection_details_select_type':
-            setCurrentStep('inspection_details_select_po');
-            addBotMessage("Finally, select a PO Number / Lot No.:", initialData.purchaseOrders, handleInspectionDetails);
-            break;
-        case 'inspection_details_select_po':
+        case 'inspection_select_po':
             const filters = {
-                factoryId: parseInt(newSessionData.inspection_details_select_factory),
-                section: newSessionData.inspection_details_select_section,
-                itemCode: newSessionData.inspection_details_select_item,
-                type: newSessionData.inspection_details_select_type,
+                factoryId: parseInt(newSessionData.inspection_select_factory),
+                section: newSessionData.inspection_select_section,
+                itemCode: newSessionData.inspection_select_item,
+                type: newSessionData.inspectionType,
                 poId: option.value,
             }
             const inspections = await actions.getFilteredInspections(filters);
             if (inspections.length > 0) {
-                const inspectionDetails = inspections.flatMap(i => i.parameters.map(p => [i.id, p.name, p.value, p.unit, p.operator, new Date(p.timestamp).toLocaleString()]));
-                addMessage('bot', <TableDisplay title="Inspection Details" headers={['Insp. ID', 'Parameter', 'Value', 'Unit', 'Operator', 'Timestamp']} rows={inspectionDetails} />)
+                const inspectionDetails = inspections.flatMap(i => i.parameters.map(p => [i.id, i.operationName || 'N/A', p.name, p.value, p.unit, new Date(p.timestamp).toLocaleString()]));
+                addMessage('bot', <TableDisplay title="Inspection Details" headers={['Insp. ID', 'Operation', 'Parameter', 'Value', 'Unit', 'Timestamp']} rows={inspectionDetails} />)
             } else {
                 addBotMessage("No inspection records found for the selected criteria.");
             }
@@ -181,17 +206,33 @@ export default function ChatInterface() {
 
     startTransition(async () => {
         switch(currentStep) {
-            case 'param_analysis_select_param':
-                setCurrentStep('param_analysis_select_duration');
-                const durations = [{label: 'Last 7 Days', value: '7'}, {label: 'Last 30 Days', value: '30'}, {label: 'Last 90 Days', value: '90'}];
-                addBotMessage("Select a duration for the analysis:", durations, handleParamAnalysis);
+            case 'param_analysis_select_factory':
+                setCurrentStep('param_analysis_select_item');
+                const itemCodes = initialData.getItemCodes(parseInt(option.value));
+                addBotMessage("Select an Item Code:", itemCodes, handleParamAnalysis);
                 break;
-            case 'param_analysis_select_duration':
-                const result = await actions.getParameterAnalysis(newSessionData.param_analysis_select_param, parseInt(option.value));
+            case 'param_analysis_select_item':
+                setCurrentStep('param_analysis_select_operation');
+                const operations = initialData.getOperations(parseInt(newSessionData.param_analysis_select_factory), option.value);
+                addBotMessage("Select an Operation:", operations, handleParamAnalysis);
+                break;
+            case 'param_analysis_select_operation':
+                setCurrentStep('param_analysis_select_parameter');
+                const parameters = initialData.getParameters(parseInt(newSessionData.param_analysis_select_factory), newSessionData.param_analysis_select_item);
+                addBotMessage("Select an Inspection Parameter:", parameters, handleParamAnalysis);
+                break;
+            case 'param_analysis_select_parameter':
+                const result = await actions.getParameterAnalysis(
+                    parseInt(newSessionData.param_analysis_select_factory),
+                    newSessionData.param_analysis_select_item,
+                    newSessionData.param_analysis_select_operation,
+                    option.value
+                );
                 if (result) {
-                    addMessage('bot', <div className='space-y-4'><RunChartStats stats={result.stats} /><ChartDisplay type="line" data={result.runChartData} title={`Run Chart for ${newSessionData.param_analysis_select_param}`} /></div>);
+                    const rows = Object.entries(result).map(([key, value]) => [key, value]);
+                    addMessage('bot', <TableDisplay title={`Analysis for ${option.label}`} headers={['Metric', 'Value']} rows={rows} />);
                 } else {
-                    addBotMessage(`No data found for '${newSessionData.param_analysis_select_param}' in the last ${option.label}.`);
+                    addBotMessage(`No analysis found for the selected criteria.`);
                 }
                 showEnd();
                 break;
@@ -208,16 +249,32 @@ export default function ChatInterface() {
 
     startTransition(async () => {
         switch(currentStep) {
-            case 'param_dist_select_item':
-                setCurrentStep('param_dist_select_param');
-                addBotMessage("Select a parameter to see its distribution:", initialData.parameters, handleParamDistribution);
+            case 'param_dist_select_context':
+                setCurrentStep('param_dist_select_factory');
+                addBotMessage("Select a Factory:", initialData.factories, handleParamDistribution);
                 break;
-            case 'param_dist_select_param':
-                const result = await actions.getParameterDistribution(newSessionData.param_dist_select_item, option.value);
-                if (result && result.length > 0) {
-                    addMessage('bot', <ChartDisplay type="bar" data={result} title={`Distribution for ${option.label} on ${newSessionData.param_dist_select_item}`} />);
+            case 'param_dist_select_factory':
+                setCurrentStep('param_dist_select_section');
+                const sections = await actions.getFactorySections(parseInt(option.value));
+                addBotMessage("Select a Section/Building/Lab:", sections, handleParamDistribution);
+                break;
+            case 'param_dist_select_section':
+                setCurrentStep('param_dist_select_item');
+                const itemCodes = initialData.getItemCodes(parseInt(newSessionData.param_dist_select_factory), option.value);
+                addBotMessage("Select an Item Code:", itemCodes, handleParamDistribution);
+                break;
+            case 'param_dist_select_item':
+                const result = await actions.getParameterDistribution(
+                    newSessionData.param_dist_select_context,
+                    parseInt(newSessionData.param_dist_select_factory),
+                    newSessionData.param_dist_select_section,
+                    option.value
+                );
+                if (result) {
+                    const rows = Object.entries(result).map(([key, value]) => [key, value]);
+                    addMessage('bot', <TableDisplay title={`Distribution for ${option.label}`} headers={['Category', 'Details']} rows={rows} />);
                 } else {
-                    addBotMessage(`No distribution data found for '${option.label}' on item '${newSessionData.param_dist_select_item}'.`);
+                    addBotMessage(`No distribution data found for '${option.label}'.`);
                 }
                 showEnd();
                 break;
