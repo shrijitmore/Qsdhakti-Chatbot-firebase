@@ -135,7 +135,7 @@ export default function ChatInterface() {
         switch (currentStep) {
             case 'po_status_select_factory':
                 setCurrentStep('po_status_select_po');
-                const poOptions = initialData.getPurchaseOrders(parseInt(option.value));
+                const poOptions = initialData.purchaseOrders.filter((po: any) => po.factoryId === option.value).map((po: any) => ({ label: po.id, value: po.id }));
                 addBotMessage("Select a PO Number:", poOptions, handlePoStatus);
                 break;
             case 'po_status_select_po':
@@ -168,12 +168,12 @@ export default function ChatInterface() {
           break;
         case 'inspection_select_section':
           setCurrentStep('inspection_select_item');
-          const itemCodes = initialData.getItemCodes(parseInt(newSessionData.inspection_select_factory), option.value);
+          const itemCodes = initialData.itemCodes.filter((ic: any) => ic.factoryId === newSessionData.inspection_select_factory && ic.section === option.value);
           addBotMessage("Select an item code:", itemCodes, handleInspectionDetails);
           break;
         case 'inspection_select_item':
           setCurrentStep('inspection_select_po');
-          const poOptions = initialData.getPurchaseOrders(parseInt(newSessionData.inspection_select_factory));
+          const poOptions = initialData.purchaseOrders.filter((po: any) => po.factoryId === newSessionData.inspection_select_factory).map((po: any) => ({ label: po.id, value: po.id }));
           addBotMessage("Finally, select a PO Number / Lot No.:", poOptions, handleInspectionDetails);
           break;
         case 'inspection_select_po':
@@ -208,17 +208,17 @@ export default function ChatInterface() {
         switch(currentStep) {
             case 'param_analysis_select_factory':
                 setCurrentStep('param_analysis_select_item');
-                const itemCodes = initialData.getItemCodes(parseInt(option.value));
+                const itemCodes = initialData.itemCodes.filter((ic: any) => ic.factoryId === option.value);
                 addBotMessage("Select an Item Code:", itemCodes, handleParamAnalysis);
                 break;
             case 'param_analysis_select_item':
                 setCurrentStep('param_analysis_select_operation');
-                const operations = initialData.getOperations(parseInt(newSessionData.param_analysis_select_factory), option.value);
+                const operations = initialData.operations.filter((op: any) => op.factoryId === newSessionData.param_analysis_select_factory && op.itemCode === option.value);
                 addBotMessage("Select an Operation:", operations, handleParamAnalysis);
                 break;
             case 'param_analysis_select_operation':
                 setCurrentStep('param_analysis_select_parameter');
-                const parameters = initialData.getParameters(parseInt(newSessionData.param_analysis_select_factory), newSessionData.param_analysis_select_item);
+                const parameters = initialData.parameters.filter((p: any) => p.factoryId === newSessionData.param_analysis_select_factory && p.itemCode === newSessionData.param_analysis_select_item);
                 addBotMessage("Select an Inspection Parameter:", parameters, handleParamAnalysis);
                 break;
             case 'param_analysis_select_parameter':
@@ -260,7 +260,7 @@ export default function ChatInterface() {
                 break;
             case 'param_dist_select_section':
                 setCurrentStep('param_dist_select_item');
-                const itemCodes = initialData.getItemCodes(parseInt(newSessionData.param_dist_select_factory), option.value);
+                const itemCodes = initialData.itemCodes.filter((ic: any) => ic.factoryId === newSessionData.param_dist_select_factory && ic.section === option.value);
                 addBotMessage("Select an Item Code:", itemCodes, handleParamDistribution);
                 break;
             case 'param_dist_select_item':

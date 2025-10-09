@@ -1,50 +1,49 @@
 'use server';
 
 import { factories, inspections, purchaseOrders } from './data';
-import type { Factory, Inspection, PurchaseOrder, Option } from './types';
-import { parseISO, isAfter } from 'date-fns';
+import type { Option } from './types';
+import { formatISO, subDays } from 'date-fns';
 
 const simulateLatency = () => new Promise(res => setTimeout(res, 300 + Math.random() * 400));
 
 export async function getInitialData() {
     await simulateLatency();
-    const factoryOptions = factories.map(f => ({ label: f.name, value: f.id.toString() }));
     
-    const poOptions = (factoryId: number) => {
-        return purchaseOrders.filter(po => po.factoryId === factoryId).map(po => ({ label: po.id, value: po.id }));
-    }
+    const factoryOptions = factories.map(f => ({ label: f.name, value: f.id.toString() }));
 
-    const itemCodeOptions = (factoryId: number, section?: string) => {
-        const itemCodes = inspections
-            .filter(i => i.factoryId === factoryId && (!section || i.section === section))
-            .map(i => i.itemCode);
-        return [...new Set(itemCodes)].map(ic => ({label: ic, value: ic}));
-    }
+    const allPurchaseOrders = purchaseOrders.map(po => ({ ...po, factoryId: po.factoryId.toString()}));
 
-    const parameterOptions = (factoryId: number, itemCode?: string) => {
-        const parameters = inspections
-            .filter(i => i.factoryId === factoryId && (!itemCode || i.itemCode === itemCode))
-            .flatMap(i => i.parameters.map(p => p.name));
-        return [...new Set(parameters)].map(p => ({label: p, value: p}));
-    }
+    const allItemCodes = inspections.map(i => ({
+        factoryId: i.factoryId.toString(),
+        section: i.section,
+        label: i.itemCode,
+        value: i.itemCode
+    })).filter((item, index, self) => self.findIndex(t => t.label === item.label && t.factoryId === item.factoryId && t.section === item.section) === index);
 
-    const operationOptions = (factoryId: number, itemCode?: string) => {
-        const operations = inspections
-            .filter(i => i.factoryId === factoryId && i.operationName && (!itemCode || i.itemCode === itemCode))
-            .map(i => i.operationName!);
-        return [...new Set(operations)].map(op => ({label: op, value: op}));
-    }
+    const allParameters = inspections.flatMap(i => i.parameters.map(p => ({
+        factoryId: i.factoryId.toString(),
+        itemCode: i.itemCode,
+        label: p.name,
+        value: p.name
+    }))).filter((param, index, self) => self.findIndex(t => t.label === param.label) === index);
+    
+    const allOperations = inspections.filter(i => i.operationName).map(i => ({
+        factoryId: i.factoryId.toString(),
+        itemCode: i.itemCode,
+        label: i.operationName!,
+        value: i.operationName!
+    })).filter((op, index, self) => self.findIndex(t => t.label === op.label) === index);
 
     return {
         factories: factoryOptions,
-        getPurchaseOrders: poOptions,
-        getItemCodes: itemCodeOptions,
-        getParameters: parameterOptions,
-        getOperations: operationOptions,
+        purchaseOrders: allPurchaseOrders,
+        itemCodes: allItemCodes,
+        parameters: allParameters,
+        operations: allOperations,
     };
 }
 
-export async function getPurchaseOrderStatus(poId: string): Promise<any> {
+export async function getPurchaseOrderStatus(poId: string) {
     await simulateLatency();
     const po = purchaseOrders.find(p => p.id === poId);
     if (!po) return null;
@@ -52,18 +51,18 @@ export async function getPurchaseOrderStatus(poId: string): Promise<any> {
     const relevantInspections = inspections.filter(i => i.poId === poId);
     const item = inspections.find(i => i.itemCode === po.itemCode)?.itemCode || 'N/A';
 
-    const inspectionSummaries = relevantInspections.map(i => {
-        let details = '';
-        if (i.summary) {
-            details = `Accepted: ${i.summary.accepted}, Rejected: ${i.summary.rejected}`;
-        } else if (i.parameters.length > 0) {
-            const readings = i.parameters.map(p => p.value).join(', ');
-            details = `Readings: [${readings}]`;
+    let details = '';
+    relevantInspections.forEach(i => {
+        if(i.summary) {
+            details += `Inspection ${i.id}: Accepted: ${i.summary.accepted}, Rejected: ${i.summary.rejected}. `;
+        }
+        if(i.parameters.length > 0) {
+            const values = i.parameters.map(p => p.value);
+            details += `Readings for ${i.parameters[0].name}: [${values.join(', ')}]. `
             if(i.parameters[0].lsl !== undefined && i.parameters[0].usl !== undefined) {
-                details += ` vs. Spec [${i.parameters[0].lsl}-${i.parameters[0].usl}]`;
+                details += `Spec: [${i.parameters[0].lsl}-${i.parameters[0].usl}]. `;
             }
         }
-        return `Inspection ${i.id}: ${details}`;
     });
 
     return {
@@ -71,7 +70,7 @@ export async function getPurchaseOrderStatus(poId: string): Promise<any> {
         'Item': item,
         'Total Inspections': relevantInspections.length,
         'Status': po.status,
-        'Details': inspectionSummaries.join('\n'),
+        'Details': details.trim(),
     };
 }
 
@@ -87,7 +86,7 @@ export async function getFilteredInspections(filters: {
   itemCode: string;
   type: 'Inward' | 'In-process' | 'Final';
   poId: string;
-}): Promise<Inspection[]> {
+}) {
   await simulateLatency();
   return inspections.filter(i =>
     i.factoryId === filters.factoryId &&
