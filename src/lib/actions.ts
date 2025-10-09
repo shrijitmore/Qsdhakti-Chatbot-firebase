@@ -2,13 +2,10 @@
 
 import { factories, inspections, purchaseOrders } from './data';
 import type { Option } from './types';
-import { formatISO, subDays } from 'date-fns';
 
 const simulateLatency = () => new Promise(res => setTimeout(res, 300 + Math.random() * 400));
 
 export async function getInitialData() {
-    await simulateLatency();
-    
     const factoryOptions = factories.map(f => ({ label: f.name, value: f.id.toString() }));
 
     const allPurchaseOrders = purchaseOrders.map(po => ({ ...po, factoryId: po.factoryId.toString()}));

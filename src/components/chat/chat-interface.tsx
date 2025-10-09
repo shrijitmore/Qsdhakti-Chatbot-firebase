@@ -48,13 +48,11 @@ export default function ChatInterface() {
   const { toast } = useToast();
 
   useEffect(() => {
-    startTransition(() => {
-      setIsBotTyping(true);
-      actions.getInitialData().then(data => {
-        setInitialData(data);
-        addBotMessage("Welcome to the Quality Insights Chatbot! How can I assist you today?", MAIN_OPTIONS, handleMainOptionSelect);
-      }).finally(() => setIsBotTyping(false));
-    });
+    setIsBotTyping(true);
+    actions.getInitialData().then(data => {
+      setInitialData(data);
+      addBotMessage("Welcome to the Quality Insights Chatbot! How can I assist you today?", MAIN_OPTIONS, handleMainOptionSelect);
+    }).finally(() => setIsBotTyping(false));
   }, []);
 
   const addMessage = (role: 'user' | 'bot', content: React.ReactNode) => {
@@ -99,6 +97,7 @@ export default function ChatInterface() {
       if(option.value.includes('inspection')){
         const type = option.value.split('_')[0];
         inspectionType = type.charAt(0).toUpperCase() + type.slice(1);
+        if (option.value === 'in_process_inspection') inspectionType = 'In-process';
         setSessionData({ inspectionType });
         setCurrentStep('inspection_select_factory');
         addBotMessage(`Let's retrieve ${inspectionType} inspection details. First, please select a factory:`, initialData.factories, handleInspectionDetails);
