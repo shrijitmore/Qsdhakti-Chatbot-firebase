@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useTransition } from 'react';
@@ -73,6 +74,14 @@ export default function ChatInterface() {
   };
   
   const handleMainOptionSelect = (option: Option) => {
+    if (!initialData) {
+      toast({
+        variant: "destructive",
+        title: "Still loading.",
+        description: "Initial data is still being loaded, please try again in a moment.",
+      });
+      return;
+    }
     addUserMessage(option.label);
     setIsBotTyping(true);
     startTransition(() => {
