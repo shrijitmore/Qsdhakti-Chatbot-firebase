@@ -8,10 +8,17 @@ const simulateLatency = () => new Promise(res => setTimeout(res, 300 + Math.rand
 
 export async function getInitialData() {
   await simulateLatency();
+  const uniqueItemCodes = inspections.reduce((acc, i) => {
+    if (!acc.find(item => item.value === i.itemCode)) {
+      acc.push({ label: i.itemCode, value: i.itemCode });
+    }
+    return acc;
+  }, [] as { label: string; value: string }[]);
+
   return {
     factories: factories.map(f => ({ label: f.name, value: f.id.toString() })),
     purchaseOrders: purchaseOrders.map(p => ({ label: p.id, value: p.id })),
-    itemCodes: [...new Set(inspections.map(i => i.itemCode))].map(ic => ({ label: ic, value: ic })),
+    itemCodes: uniqueItemCodes,
     parameters: [...new Set(inspections.flatMap(i => i.parameters.map(p => p.name)))].map(p => ({ label: p, value: p })),
   };
 }
