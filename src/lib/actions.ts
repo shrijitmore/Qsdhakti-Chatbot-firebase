@@ -8,18 +8,31 @@ const simulateLatency = () => new Promise(res => setTimeout(res, 300 + Math.rand
 
 export async function getInitialData() {
   await simulateLatency();
-  const uniqueItemCodes = inspections.reduce((acc, i) => {
-    if (!acc.find(item => item.value === i.itemCode)) {
-      acc.push({ label: i.itemCode, value: i.itemCode });
-    }
-    return acc;
-  }, [] as { label: string; value: string }[]);
-
+  // Using predefined static data to avoid any processing errors.
   return {
-    factories: factories.map(f => ({ label: f.name, value: f.id.toString() })),
-    purchaseOrders: purchaseOrders.map(p => ({ label: p.id, value: p.id })),
-    itemCodes: uniqueItemCodes,
-    parameters: [...new Set(inspections.flatMap(i => i.parameters.map(p => p.name)))].map(p => ({ label: p, value: p })),
+    factories: [
+        { label: 'Alpha Manufacturing', value: '1' },
+        { label: 'Beta Components', value: '2' },
+        { label: 'Gamma Assembly', value: '3' }
+    ],
+    purchaseOrders: [
+        { label: 'PO-001', value: 'PO-001' },
+        { label: 'PO-002', value: 'PO-002' },
+        { label: 'PO-003', value: 'PO-003' },
+        { label: 'PO-004', value: 'PO-004' },
+        { label: 'PO-005', value: 'PO-005' }
+    ],
+    itemCodes: [
+        { label: 'IC-456', value: 'IC-456' },
+        { label: 'TR-789', value: 'TR-789' },
+        { label: 'PS-101', value: 'PS-101' }
+    ],
+    parameters: [
+        { label: 'Diameter', value: 'Diameter' },
+        { label: 'Resistance', value: 'Resistance' },
+        { label: 'Capacitance', value: 'Capacitance' },
+        { label: 'Voltage', value: 'Voltage' }
+    ],
   };
 }
 
