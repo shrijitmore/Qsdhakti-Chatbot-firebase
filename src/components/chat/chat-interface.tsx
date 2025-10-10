@@ -51,6 +51,7 @@ export default function ChatInterface() {
   const [currentStep, setCurrentStep] = useState<ConversationStep>('start');
   const [sessionData, setSessionData] = useState<Record<string, any>>({});
   const [isPending, startTransition] = useTransition();
+  const { toast } = useToast();
   
   const sessionDataRef = useRef<Record<string, any>>({});
   const didInitRef = useRef(false);
