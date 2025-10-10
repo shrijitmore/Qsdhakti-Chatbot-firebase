@@ -45,6 +45,61 @@ const MAIN_OPTIONS: Option[] = [
 // Precompute static initial data once at module load
 const STATIC_INITIAL_DATA = actions.getInitialData();
 
+// NumericInput component for typing numeric options
+function NumericInput({ 
+  options, 
+  onSubmit, 
+  onError 
+}: { 
+  options: Option[]; 
+  onSubmit: (opt: Option) => void;
+  onError: (msg: string) => void;
+}) {
+  const [inputValue, setInputValue] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedValue = inputValue.trim();
+    
+    if (!trimmedValue) {
+      onError('Please enter a value');
+      return;
+    }
+
+    // Find matching option
+    const matchedOption = options.find(
+      opt => opt.value.toString().toLowerCase() === trimmedValue.toLowerCase()
+    );
+
+    if (matchedOption) {
+      setInputValue('');
+      onSubmit(matchedOption);
+    } else {
+      onError(`Invalid input. Please type one of the numbers shown in the options: ${options.map(o => o.value).join(', ')}`);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex gap-2">
+      <Input
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        placeholder="Type number here..."
+        className="flex-1"
+        data-testid="numeric-input"
+      />
+      <Button 
+        type="submit" 
+        size="sm"
+        data-testid="numeric-submit-btn"
+      >
+        Submit
+      </Button>
+    </form>
+  );
+}
+
 export default function ChatInterface() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isBotTyping, setIsBotTyping] = useState(false);
