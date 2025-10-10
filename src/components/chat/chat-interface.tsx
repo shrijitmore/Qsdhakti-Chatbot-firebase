@@ -5,9 +5,11 @@ import { useState, useEffect, useTransition, useRef } from 'react';
 import type { ChatMessage, Option } from '@/lib/types';
 import * as actions from '@/lib/actions';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ChatMessages } from './chat-messages';
 import { TableDisplay } from './table-display';
 import { ChartDisplay, RunChartStats } from './chart-display';
+import { useToast } from '@/hooks/use-toast';
 
 type ConversationStep =
   | 'start'
