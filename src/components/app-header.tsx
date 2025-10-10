@@ -8,7 +8,7 @@ export function AppHeader() {
           <div className="flex items-center gap-3">
             <AppLogo className="h-8 w-8" />
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
-              Quality Insights Chatbot
+              Qshakti Chatbot
             </h1>
           </div>
         </div>
