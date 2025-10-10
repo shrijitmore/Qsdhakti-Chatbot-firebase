@@ -72,16 +72,43 @@ export default function ChatInterface() {
   };
 
   const addBotMessage = (text: string, options: Option[] | null = null, handler: ((option: Option) => void) | null = null) => {
+    // Check if all options are numeric and short (≤5 digits)
+    const isNumericOptions = options?.every(opt => {
+      const val = opt.value.toString();
+      return /^\d{1,5}$/.test(val) || /^[A-Z]-\d{1,4}$/.test(val);
+    });
+
     const content = (
       <div>
         <p className="mb-4">{text}</p>
         {options && handler && (
-          <div className="flex flex-wrap gap-2">
-            {options.map(opt => (
-              <Button key={opt.value} variant="outline" size="sm" onClick={() => handler(opt)}>
-                {opt.label}
-              </Button>
-            ))}
+          <div className="space-y-3">
+            {/* Show text input for numeric options */}
+            {isNumericOptions && (
+              <NumericInput 
+                options={options} 
+                onSubmit={handler}
+                onError={(msg) => toast({ 
+                  variant: "destructive",
+                  title: "Invalid Input", 
+                  description: msg 
+                })}
+              />
+            )}
+            {/* Always show option buttons */}
+            <div className="flex flex-wrap gap-2">
+              {options.map(opt => (
+                <Button 
+                  key={opt.value} 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handler(opt)}
+                  data-testid={`option-${opt.value}`}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+            </div>
           </div>
         )}
       </div>
