@@ -206,3 +206,209 @@ class ParameterSeriesAndStatsView(APIView):
 class ParameterDistributionView(APIView):
     def get(self, request):
         return Response({"detail": "Not implemented: readings source not available"}, status=status.HTTP_501_NOT_IMPLEMENTED)
+
+
+class ActualInspectionReadingsView(APIView):
+    """
+    Fetch actual inspection readings (not just schedule/target values)
+    Based on inspection type, queries the appropriate reading tables
+    """
+    def get(self, request):
+        inspection_type = request.query_params.get('inspection_type')  # 'Inward', 'In-process', 'Final'
+        plant_id = request.query_params.get('plant_id')
+        building = request.query_params.get('building')
+        item_code = request.query_params.get('item_code')
+        po_no = request.query_params.get('po_no')  # or io_no for Inward
+        operation = request.query_params.get('operation')
+        parameter_name = request.query_params.get('parameter_name')
+
+        if not inspection_type:
+            return Response({"error": "inspection_type is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        results = []
+
+        try:
+            if inspection_type == 'Inward':
+                # Query: master_inspectionschedule -> master_rminspectionreading -> master_rmactualreading
+                schedules = MasterInspectionschedule.objects.filter(
+                    inspection_type='Inward',
+                    is_active=True
+                )
+                
+                if plant_id:
+                    schedules = schedules.filter(plant_id__plant_id=plant_id)
+                if building:
+                    schedules = schedules.filter(building__building_id=building)
+                if item_code:
+                    schedules = schedules.filter(item_code__item_code=item_code)
+                if operation:
+                    schedules = schedules.filter(operation__operation_id=operation)
+                if parameter_name:
+                    schedules = schedules.filter(inspection_parameter_name=parameter_name)
+                
+                # Get readings for these schedules
+                for schedule in schedules:
+                    readings = MasterRminspectionreading.objects.filter(
+                        insp_schedule_id=schedule,
+                        is_active=True
+                    )
+                    
+                    if po_no:  # io_no for Inward
+                        readings = readings.filter(io_no=po_no)
+                    
+                    for reading in readings:
+                        actual_readings = MasterRmactualreading.objects.filter(
+                            reading_id=reading,
+                            is_active=True
+                        )
+                        
+                        for actual in actual_readings:
+                            results.append({
+                                'schedule_id': schedule.id,
+                                'reading_id': reading.id,
+                                'actual_reading_id': actual.id,
+                                'inspection_type': 'Inward',
+                                'plant_id': schedule.plant_id.plant_id if schedule.plant_id else None,
+                                'plant_name': schedule.plant_id.plant_name if schedule.plant_id else None,
+                                'building_id': schedule.building.building_id if schedule.building else None,
+                                'building_name': schedule.building.building_name if schedule.building else None,
+                                'item_code': schedule.item_code.item_code if schedule.item_code else None,
+                                'item_description': schedule.item_code.item_description if schedule.item_code else None,
+                                'operation_id': schedule.operation.operation_id if schedule.operation else None,
+                                'operation_name': schedule.operation.operation_name if schedule.operation else None,
+                                'parameter_name': schedule.inspection_parameter_name,
+                                'io_no': reading.io_no,
+                                'lsl': schedule.lsl,
+                                'usl': schedule.usl,
+                                'target_value': schedule.target_value,
+                                'r_key': actual.r_key,
+                                'r_value': actual.r_value,
+                                'unit': schedule.item_code.unit if schedule.item_code else '',
+                                'timestamp': actual.created_at.isoformat(),
+                                'operator': actual.created_by.username if actual.created_by else 'N/A',
+                                'remarks': reading.remarks,
+                            })
+
+            elif inspection_type == 'In-process':
+                # Query: master_inspectionschedule -> master_inprocessinspectionreading -> master_inprocessactualreading
+                schedules = MasterInspectionschedule.objects.filter(
+                    inspection_type='In-process',
+                    is_active=True
+                )
+                
+                if plant_id:
+                    schedules = schedules.filter(plant_id__plant_id=plant_id)
+                if building:
+                    schedules = schedules.filter(building__building_id=building)
+                if item_code:
+                    schedules = schedules.filter(item_code__item_code=item_code)
+                if operation:
+                    schedules = schedules.filter(operation__operation_id=operation)
+                if parameter_name:
+                    schedules = schedules.filter(inspection_parameter_name=parameter_name)
+                
+                for schedule in schedules:
+                    readings = MasterInprocessinspectionreading.objects.filter(
+                        insp_schedule_id=schedule,
+                        is_active=True
+                    )
+                    
+                    if po_no:
+                        readings = readings.filter(po_no=po_no)
+                    
+                    for reading in readings:
+                        actual_readings = MasterInprocessactualreading.objects.filter(
+                            reading_id=reading,
+                            is_active=True
+                        )
+                        
+                        for actual in actual_readings:
+                            results.append({
+                                'schedule_id': schedule.id,
+                                'reading_id': reading.id,
+                                'actual_reading_id': actual.id,
+                                'inspection_type': 'In-process',
+                                'plant_id': schedule.plant_id.plant_id if schedule.plant_id else None,
+                                'plant_name': schedule.plant_id.plant_name if schedule.plant_id else None,
+                                'building_id': schedule.building.building_id if schedule.building else None,
+                                'building_name': schedule.building.building_name if schedule.building else None,
+                                'item_code': schedule.item_code.item_code if schedule.item_code else None,
+                                'item_description': schedule.item_code.item_description if schedule.item_code else None,
+                                'operation_id': schedule.operation.operation_id if schedule.operation else None,
+                                'operation_name': schedule.operation.operation_name if schedule.operation else None,
+                                'parameter_name': schedule.inspection_parameter_name,
+                                'po_no': reading.po_no,
+                                'lsl': schedule.lsl,
+                                'usl': schedule.usl,
+                                'target_value': schedule.target_value,
+                                'r_key': actual.r_key,
+                                'r_value': actual.r_value,
+                                'unit': schedule.item_code.unit if schedule.item_code else '',
+                                'timestamp': actual.created_at.isoformat(),
+                                'operator': actual.created_by.username if actual.created_by else 'N/A',
+                                'remarks': reading.remarks,
+                            })
+
+            elif inspection_type == 'Final':
+                # Query: master_faiinspectionschedule -> master_faiinspectionreading -> master_faiactualreading
+                schedules = MasterFaiinspectionschedule.objects.filter(
+                    is_active=True
+                )
+                
+                if plant_id:
+                    schedules = schedules.filter(plant_id__plant_id=plant_id)
+                if building:
+                    schedules = schedules.filter(building__building_id=building)
+                if item_code:
+                    schedules = schedules.filter(item_code__item_code=item_code)
+                if operation:
+                    schedules = schedules.filter(operation__operation_id=operation)
+                if parameter_name:
+                    schedules = schedules.filter(inspection_parameter_name=parameter_name)
+                
+                for schedule in schedules:
+                    readings = MasterFaiinspectionreading.objects.filter(
+                        insp_schedule_id=schedule,
+                        is_active=True
+                    )
+                    
+                    if po_no:
+                        readings = readings.filter(po_no=po_no)
+                    
+                    for reading in readings:
+                        actual_readings = MasterFaiactualreading.objects.filter(
+                            reading_id=reading,
+                            is_active=True
+                        )
+                        
+                        for actual in actual_readings:
+                            results.append({
+                                'schedule_id': schedule.id,
+                                'reading_id': reading.id,
+                                'actual_reading_id': actual.id,
+                                'inspection_type': 'Final',
+                                'plant_id': schedule.plant_id.plant_id if schedule.plant_id else None,
+                                'plant_name': schedule.plant_id.plant_name if schedule.plant_id else None,
+                                'building_id': schedule.building.building_id if schedule.building else None,
+                                'building_name': schedule.building.building_name if schedule.building else None,
+                                'item_code': schedule.item_code.item_code if schedule.item_code else None,
+                                'item_description': schedule.item_code.item_description if schedule.item_code else None,
+                                'operation_id': schedule.operation.operation_id if schedule.operation else None,
+                                'operation_name': schedule.operation.operation_name if schedule.operation else None,
+                                'parameter_name': schedule.inspection_parameter_name,
+                                'po_no': reading.po_no,
+                                'lsl': schedule.lsl,
+                                'usl': schedule.usl,
+                                'target_value': schedule.target_value,
+                                'r_key': actual.r_key,
+                                'r_value': actual.r_value,
+                                'unit': schedule.item_code.unit if schedule.item_code else '',
+                                'timestamp': actual.created_at.isoformat(),
+                                'operator': actual.created_by.username if actual.created_by else 'N/A',
+                                'remarks': reading.remarks,
+                            })
+
+            return Response({'readings': results, 'count': len(results)})
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
