@@ -108,25 +108,47 @@ export async function getFilteredInspections(filters: {
     inspection_type: filters.type,
     po_no: filters.poId,
   });
-  const inspectionsRes = await fetch(`${API_BASE_URL}/inspectionschedules/?${params.toString()}`);
-  const inspections = await inspectionsRes.json();
-  return inspections.map((i: any) => ({
-    id: i.id,
-    factoryId: i.plant_id,
-    section: i.building,
-    itemCode: i.item_code,
-    type: i.inspection_type,
-    poId: i.po_no,
-    operationName: i.operation,
-    parameters: [{
-      name: i.inspection_parameter_name,
-      value: i.target_value,
-      unit: '', // Assuming unit is not directly available in MasterInspectionschedule
-      timestamp: i.created_at,
-      lsl: i.lsl,
-      usl: i.usl,
-    }]
-  }));
+  
+  // Fetch actual readings instead of just schedule
+  const readingsRes = await fetch(`${API_BASE_URL}/inspections/actual-readings/?${params.toString()}`);
+  const data = await readingsRes.json();
+  
+  console.log('[API] actual inspection readings:', data);
+  
+  if (!data.readings || data.readings.length === 0) {
+    return [];
+  }
+  
+  // Group readings by schedule_id
+  const groupedBySchedule = data.readings.reduce((acc: any, reading: any) => {
+    if (!acc[reading.schedule_id]) {
+      acc[reading.schedule_id] = {
+        id: reading.schedule_id,
+        factoryId: reading.plant_id,
+        section: reading.building_id,
+        itemCode: reading.item_code,
+        type: reading.inspection_type,
+        poId: reading.po_no || reading.io_no,
+        operationName: reading.operation_name,
+        parameters: []
+      };
+    }
+    
+    acc[reading.schedule_id].parameters.push({
+      name: reading.parameter_name,
+      value: reading.r_value,  // Use actual r_value instead of target_value
+      unit: reading.unit || '',
+      timestamp: reading.timestamp,
+      lsl: reading.lsl,
+      usl: reading.usl,
+      operator: reading.operator,
+      r_key: reading.r_key,
+    });
+    
+    return acc;
+  }, {});
+  
+  return Object.values(groupedBySchedule);
 }
 
 export async function getParameterAnalysis(factoryId: number, itemCode: string, operation: string, parameter: string) {
