@@ -156,27 +156,41 @@ export async function getParameterAnalysis(factoryId: number, itemCode: string, 
     plant_id: factoryId.toString(),
     item_code: itemCode,
     operation: operation,
-    inspection_parameter_name: parameter,
+    parameter_name: parameter,
   });
-  const inspectionsRes = await fetch(`${API_BASE_URL}/inspectionschedules/?${params.toString()}`);
-  const inspections = await inspectionsRes.json();
+  
+  // Fetch actual readings from all inspection types
+  const results = [];
+  for (const inspType of ['Inward', 'In-process', 'Final']) {
+    const typeParams = new URLSearchParams(params);
+    typeParams.set('inspection_type', inspType);
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/inspections/actual-readings/?${typeParams.toString()}`);
+      const data = await res.json();
+      if (data.readings) {
+        results.push(...data.readings);
+      }
+    } catch (e) {
+      console.error(`[API] Error fetching ${inspType} readings:`, e);
+    }
+  }
 
-  const relevantParams = inspections.map((i: any) => ({
-    value: i.target_value,
-    unit: '', // Placeholder
-    operator: i.created_by, // Assuming created_by is the operator
-    lsl: i.lsl,
-    usl: i.usl,
+  if (results.length === 0) return null;
+
+  const relevantParams = results.map((r: any) => ({
+    value: r.r_value,  // Use actual r_value
+    unit: r.unit || '',
+    operator: r.operator,
+    lsl: r.lsl,
+    usl: r.usl,
   }));
-
-  if (relevantParams.length === 0) return null;
 
   const values = relevantParams.map(p => p.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
   const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
   const unit = relevantParams[0].unit;
-  const operator = relevantParams[0].operator;
   const { lsl, usl } = relevantParams[0];
   
   const outsideSpec = values.filter(v => (lsl !== undefined && v < lsl) || (usl !== undefined && v > usl));
