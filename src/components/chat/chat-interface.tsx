@@ -42,8 +42,14 @@ const MAIN_OPTIONS: Option[] = [
   { label: 'Distribution of Captured Inspection Parameter', value: 'param_dist' },
 ];
 
-// Precompute static initial data once at module load
-const STATIC_INITIAL_DATA = actions.getInitialData();
+// Load initial data at runtime
+type InitialData = {
+  factories: Option[];
+  purchaseOrders: any[];
+  itemCodes: any[];
+  parameters: any[];
+  operations: any[];
+};
 
 // NumericInput component for typing numeric options
 function NumericInput({ 
@@ -105,6 +111,7 @@ export default function ChatInterface() {
   const [isBotTyping, setIsBotTyping] = useState(false);
   const [currentStep, setCurrentStep] = useState<ConversationStep>('start');
   const [sessionData, setSessionData] = useState<Record<string, any>>({});
+  const [initialData, setInitialData] = useState<InitialData | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   
@@ -117,9 +124,24 @@ export default function ChatInterface() {
   useEffect(() => {
     if (didInitRef.current) return;
     didInitRef.current = true;
-    setIsBotTyping(true);
-    addBotMessage("Welcome to the Quality Insights Chatbot! How can I assist you today?", MAIN_OPTIONS, handleMainOptionSelect);
-    setIsBotTyping(false);
+    (async () => {
+      setIsBotTyping(true);
+      try {
+        const data = await actions.getInitialData();
+        setInitialData(data as InitialData);
+        console.log('[UI] initialData counts', {
+          factories: (data as any)?.factories?.length || 0,
+          purchaseOrders: (data as any)?.purchaseOrders?.length || 0,
+          itemCodes: (data as any)?.itemCodes?.length || 0,
+          parameters: (data as any)?.parameters?.length || 0,
+          operations: (data as any)?.operations?.length || 0,
+        });
+        addBotMessage("Welcome to the Quality Insights Chatbot! How can I assist you today?", MAIN_OPTIONS, handleMainOptionSelect);
+      } catch (e) {
+        addBotMessage("Failed to load initial data. Please refresh the page.");
+      }
+      setIsBotTyping(false);
+    })();
   }, []);
   
   const addMessage = (role: 'user' | 'bot', content: React.ReactNode) => {
@@ -179,6 +201,13 @@ export default function ChatInterface() {
     addUserMessage(option.label);
     setIsBotTyping(true);
     startTransition(() => {
+      const ensureInitialData = async (): Promise<InitialData> => {
+        if (initialData) return initialData;
+        const data = await actions.getInitialData();
+        setInitialData(data as InitialData);
+        return data as InitialData;
+      };
+
       let inspectionType = '';
       if(option.value.includes('inspection')){
         const type = option.value.split('_')[0];
@@ -186,11 +215,14 @@ export default function ChatInterface() {
         if (option.value === 'in_process_inspection') inspectionType = 'In-process';
         setSessionData(prev => ({ ...prev, inspectionType }));
         setCurrentStep('inspection_select_factory');
-        addBotMessage(
-          `Let's retrieve ${inspectionType} inspection details. First, please select a factory:`,
-          STATIC_INITIAL_DATA.factories,
-          (opt) => handleInspectionDetails('inspection_select_factory', opt)
-        );
+        ensureInitialData().then((data) => {
+          addBotMessage(
+            `Let's retrieve ${inspectionType} inspection details. First, please select a factory:`,
+            data.factories,
+            (opt) => handleInspectionDetails('inspection_select_factory', opt)
+          );
+          setIsBotTyping(false);
+        });
         setIsBotTyping(false);
         return;
       }
@@ -198,19 +230,25 @@ export default function ChatInterface() {
       switch (option.value) {
         case 'po_status':
           setCurrentStep('po_status_select_factory');
-          addBotMessage(
-            "Select the factory for which you want to see PO number status.",
-            STATIC_INITIAL_DATA.factories,
-            (opt) => handlePoStatus('po_status_select_factory', opt)
-          );
+          ensureInitialData().then((data) => {
+            addBotMessage(
+              "Select the factory for which you want to see PO number status.",
+              data.factories,
+              (opt) => handlePoStatus('po_status_select_factory', opt)
+            );
+            setIsBotTyping(false);
+          });
           break;
         case 'param_analysis':
           setCurrentStep('param_analysis_select_factory');
-          addBotMessage(
-            "For parameter analysis, first select a factory:",
-            STATIC_INITIAL_DATA.factories,
-            (opt) => handleParamAnalysis('param_analysis_select_factory', opt)
-          );
+          ensureInitialData().then((data) => {
+            addBotMessage(
+              "For parameter analysis, first select a factory:",
+              data.factories,
+              (opt) => handleParamAnalysis('param_analysis_select_factory', opt)
+            );
+            setIsBotTyping(false);
+          });
           break;
         case 'param_dist':
           setCurrentStep('param_dist_select_context');
@@ -237,7 +275,8 @@ export default function ChatInterface() {
         switch (step) {
             case 'po_status_select_factory':
                 setCurrentStep('po_status_select_po');
-                const poOptions = STATIC_INITIAL_DATA.purchaseOrders.filter((po: any) => po.factoryId === option.value).map((po: any) => ({ label: po.id, value: po.id }));
+                const poList = await actions.getPurchaseOrdersByFactory(option.value);
+                const poOptions = poList.map((po: any) => ({ label: po.id, value: po.id }));
                 addBotMessage("Select a PO Number:", poOptions, (opt) => handlePoStatus('po_status_select_po', opt));
                 break;
             case 'po_status_select_po':
@@ -271,12 +310,18 @@ export default function ChatInterface() {
           break;
         case 'inspection_select_section':
           setCurrentStep('inspection_select_item');
-          const itemCodes = STATIC_INITIAL_DATA.itemCodes.filter((ic: any) => ic.factoryId === newSessionData.inspection_select_factory && ic.section === option.value);
-          addBotMessage("Select an item code:", itemCodes, (opt) => handleInspectionDetails('inspection_select_item', opt));
+          const inspType = newSessionData.inspectionType as string | undefined;
+          const itemType = inspType === 'Inward' ? 'RM' : (inspType === 'In-process' ? 'SFG' : undefined);
+          const dynItems = await actions.getItemCodesByFactorySection(String(newSessionData.inspection_select_factory), option.value, itemType as any);
+          console.log('[UI] fetching items', { factory: newSessionData.inspection_select_factory, section: option.value, inspectionType: inspType, itemType, resultCount: dynItems.length });
+          addBotMessage("Select an item code:", dynItems, (opt) => handleInspectionDetails('inspection_select_item', opt));
           break;
         case 'inspection_select_item':
           setCurrentStep('inspection_select_po');
-          const poOptions = STATIC_INITIAL_DATA.purchaseOrders.filter((po: any) => po.factoryId === newSessionData.inspection_select_factory).map((po: any) => ({ label: po.id, value: po.id }));
+          console.log('[UI] inspection_select_item', { newSessionData, option });
+          console.log('[UI] initialData.purchaseOrders', initialData?.purchaseOrders);
+          const poOptions = (initialData?.purchaseOrders || []).filter((po: any) => po.factoryId === newSessionData.inspection_select_factory && po.itemCode === option.value).map((po: any) => ({ label: po.id, value: po.id }));
+          console.log('[UI] poOptions', poOptions);
           addBotMessage("Finally, select a PO Number / Lot No.:", poOptions, (opt) => handleInspectionDetails('inspection_select_po', opt));
           break;
         case 'inspection_select_po':
@@ -317,17 +362,17 @@ export default function ChatInterface() {
                 break;
             case 'param_analysis_select_section':
                 setCurrentStep('param_analysis_select_item');
-                const itemCodes = STATIC_INITIAL_DATA.itemCodes.filter((ic: any) => ic.factoryId === newSessionData.param_analysis_select_factory && ic.section === option.value);
+                const itemCodes = (initialData?.itemCodes || []).filter((ic: any) => ic.factoryId === newSessionData.param_analysis_select_factory && ic.section === option.value);
                 addBotMessage("Select an Item Code:", itemCodes, (opt) => handleParamAnalysis('param_analysis_select_item', opt));
                 break;
             case 'param_analysis_select_item':
                 setCurrentStep('param_analysis_select_operation');
-                const operations = STATIC_INITIAL_DATA.operations.filter((op: any) => op.factoryId === newSessionData.param_analysis_select_factory && op.itemCode === option.value);
+                const operations = (initialData?.operations || []).filter((op: any) => op.factoryId === newSessionData.param_analysis_select_factory && op.itemCode === option.value);
                 addBotMessage("Select an Operation:", operations, (opt) => handleParamAnalysis('param_analysis_select_operation', opt));
                 break;
             case 'param_analysis_select_operation':
                 setCurrentStep('param_analysis_select_parameter');
-                const parameters = STATIC_INITIAL_DATA.parameters.filter((p: any) => p.factoryId === newSessionData.param_analysis_select_factory && p.itemCode === newSessionData.param_analysis_select_item);
+                const parameters = (initialData?.parameters || []).filter((p: any) => p.factoryId === newSessionData.param_analysis_select_factory && p.itemCode === newSessionData.param_analysis_select_item);
                 addBotMessage("Select an Inspection Parameter:", parameters, (opt) => handleParamAnalysis('param_analysis_select_parameter', opt));
                 break;
             case 'param_analysis_select_parameter':
@@ -449,7 +494,7 @@ export default function ChatInterface() {
     startTransition(async () => {
         switch(step) {
             case 'param_dist_select_context':
-                addBotMessage("Select a Factory:", STATIC_INITIAL_DATA.factories, (opt) => handleParamDistribution('param_dist_select_factory', opt));
+                addBotMessage("Select a Factory:", initialData?.factories || [], (opt) => handleParamDistribution('param_dist_select_factory', opt));
                 break;
             case 'param_dist_select_factory':
                 setCurrentStep('param_dist_select_section');
@@ -458,7 +503,7 @@ export default function ChatInterface() {
                 break;
             case 'param_dist_select_section':
                 setCurrentStep('param_dist_select_item');
-                const itemCodes = STATIC_INITIAL_DATA.itemCodes.filter((ic: any) => ic.factoryId === newSessionData.param_dist_select_factory && ic.section === option.value);
+                const itemCodes = (initialData?.itemCodes || []).filter((ic: any) => ic.factoryId === newSessionData.param_dist_select_factory && ic.section === option.value);
                 addBotMessage("Select an Item Code:", itemCodes, (opt) => handleParamDistribution('param_dist_select_item', opt));
                 break;
             case 'param_dist_select_item':

@@ -2,84 +2,96 @@ import { factories, inspections, purchaseOrders } from './data';
 import type { Option } from './types';
 import { parseISO, isAfter, subDays, format } from 'date-fns';
 
-// Static data - computed once
-const factoryOptions = factories.map(f => ({ label: f.name, value: f.id.toString() }));
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
 
-const allPurchaseOrders = purchaseOrders.map(po => ({ ...po, factoryId: po.factoryId.toString()}));
+export async function getInitialData() {
+    try {
+        const [factoriesRes, purchaseOrdersRes, itemCodesRes, parametersRes, operationsRes] = await Promise.all([
+            fetch(`${API_BASE_URL}/plants/`),
+            fetch(`${API_BASE_URL}/productionplanners/`),
+            fetch(`${API_BASE_URL}/itemmasters/`),
+            fetch(`${API_BASE_URL}/parameterlists/`),
+            fetch(`${API_BASE_URL}/operationmasters/`),
+        ]);
 
-const allItemCodes = inspections.map(i => ({
-    factoryId: i.factoryId.toString(),
-    section: i.section,
-    label: i.itemCode,
-    value: i.itemCode
-})).filter((item, index, self) => self.findIndex(t => t.label === item.label && t.factoryId === item.factoryId && t.section === item.section) === index);
+        const [factoriesJson, poJson, itemsJson, paramsJson, opsJson] = await Promise.all([
+            factoriesRes.json(), purchaseOrdersRes.json(), itemCodesRes.json(), parametersRes.json(), operationsRes.json()
+        ]);
 
-const allParameters = inspections.flatMap(i => i.parameters.map(p => ({
-    factoryId: i.factoryId.toString(),
-    itemCode: i.itemCode,
-    label: p.name,
-    value: p.name
-}))).filter((param, index, self) => self.findIndex(t => t.label === param.label) === index);
+        console.log('[API] factories:', factoriesJson);
+        console.log('[API] productionplanners:', poJson);
+        console.log('[API] itemmasters:', itemsJson);
+        console.log('[API] parameterlists:', paramsJson);
+        console.log('[API] operationmasters:', opsJson);
 
-const allOperations = inspections.filter(i => i.operationName).map(i => ({
-    factoryId: i.factoryId.toString(),
-    itemCode: i.itemCode,
-    label: i.operationName!,
-    value: i.operationName!
-})).filter((op, index, self) => self.findIndex(t => t.label === op.label) === index);
+        const factories = Array.isArray(factoriesJson) ? factoriesJson : [];
+        const purchaseOrders = Array.isArray(poJson) ? poJson : [];
+        const itemCodes = Array.isArray(itemsJson) ? itemsJson : [];
+        const parameters = Array.isArray(paramsJson) ? paramsJson : [];
+        const operations = Array.isArray(opsJson) ? opsJson : [];
 
-// Fallback spec map derived from src/data.txt where readings may not embed LSL/USL/Target
-// Key format: `${operationName}::${parameterName}`
-const SPEC_MAP: Record<string, { lsl?: number; target?: number; usl?: number; unit?: string }> = {
-  'Checking of Solution Strength from Lab::Strength': { lsl: 8, target: 12, usl: 16, unit: '%' },
-  'Ingredient preparation for composition SR-252::Charge Mass of compo. ME-433': { lsl: 60, target: 65, usl: 70, unit: 'gm' },
-  'Ingredient Preparation (Potassium Chlorate)::Check Filled box 37A, Container, Pickets, 75 A': { lsl: 70, target: 75, usl: 80, unit: 'count' },
-  'Mixing of Compo.ME-425::Wt. of SMP': { lsl: 53, target: 59, usl: 59, unit: 'gm' },
-};
+        const itemCodeMap = new Map<string, string>();
+        itemCodes.forEach((ic: any) => {
+            itemCodeMap.set(String(ic.id), ic.item_code);
+        });
 
-export function getInitialData() {
-    return {
-        factories: factoryOptions,
-        purchaseOrders: allPurchaseOrders,
-        itemCodes: allItemCodes,
-        parameters: allParameters,
-        operations: allOperations,
-    };
+        return {
+            factories: factories.map((f: any) => ({ label: f.plant_name || f.name || String(f.id ?? f.pk ?? f.plant_id), value: String(f.id ?? f.pk) })),
+            purchaseOrders: purchaseOrders.map((po: any) => ({ id: String(po.id ?? po.order_number), factoryId: String(po.plant ?? po.plant_id ?? po.plantId ?? ''), itemCode: String(po.item_code ?? po.item_code_id ?? ''), status: po.status, section: po.section })),
+            itemCodes: itemCodes.map((ic: any) => ({ factoryId: String(ic.plant ?? ic.plant_id ?? ''), section: String(ic.building ?? ic.building_id ?? ''), label: ic.item_code, value: ic.item_code })),
+            parameters: parameters.map((p: any) => ({ factoryId: String(p.plant ?? p.plant_id ?? ''), itemCode: String(p.item_code ?? ''), label: p.inspection_parameter, value: p.inspection_parameter })),
+            operations: operations.map((op: any) => ({ factoryId: String(op.plant ?? op.plant_id ?? ''), itemCode: itemCodeMap.get(String(op.item_code)), label: op.operation_name, value: op.operation_name })),
+        };
+    } catch (err) {
+        console.error('[API] getInitialData error:', err);
+        return { factories: [], purchaseOrders: [], itemCodes: [], parameters: [], operations: [] };
+    }
 }
 
 export async function getPurchaseOrderStatus(poId: string) {
-    const po = purchaseOrders.find(p => p.id === poId);
-    if (!po) return null;
-
-    const relevantInspections = inspections.filter(i => i.poId === poId);
-    const item = inspections.find(i => i.itemCode === po.itemCode)?.itemCode || 'N/A';
-
-    let details = '';
-    relevantInspections.forEach(i => {
-        if(i.summary) {
-            details += `Inspection ${i.id}: Accepted: ${i.summary.accepted}, Rejected: ${i.summary.rejected}. `;
-        }
-        if(i.parameters.length > 0) {
-            const values = i.parameters.map(p => p.value);
-            details += `Readings for ${i.parameters[0].name}: [${values.join(', ')}]. `
-            if(i.parameters[0].lsl !== undefined && i.parameters[0].usl !== undefined) {
-                details += `Spec: [${i.parameters[0].lsl}-${i.parameters[0].usl}]. `;
-            }
-        }
-    });
+    const poRes = await fetch(`${API_BASE_URL}/productionplanners/${poId}/`);
+    if (!poRes.ok) return null;
+    const po = await poRes.json();
 
     return {
-        'PO Number': po.id,
-        'Item': item,
-        'Total Inspections': relevantInspections.length,
+        'PO Number': po.order_number,
+        'Item': po.item_code,
         'Status': po.status,
-        'Details': details.trim(),
+        'Customer Name': po.customer_name,
+        'Start Date': po.start_date,
+        'Target Date': po.target_date,
     };
 }
 
+export async function getPurchaseOrdersByFactory(factoryId: string) {
+  const res = await fetch(`${API_BASE_URL}/productionplanners/?plant=${encodeURIComponent(factoryId)}`);
+  if (!res.ok) return [] as { id: string }[];
+  const data = await res.json();
+  console.log('[API] productionplanners by plant', factoryId, data);
+  return (Array.isArray(data) ? data : []).map((po: any) => ({
+    id: String(po.order_number ?? po.id),
+  }));
+}
+
 export async function getFactorySections(factoryId: number): Promise<Option[]> {
-  const factory = factories.find(f => f.id === factoryId);
-  return factory ? factory.sections.map(s => ({ label: s, value: s })) : [];
+  const sectionsRes = await fetch(`${API_BASE_URL}/buildingsectionlabs/?plant=${factoryId}`);
+  const sections = await sectionsRes.json();
+  console.log('[API] sections by plant', factoryId, sections);
+  return sections.map((s: any) => ({ label: s.building_name, value: s.id.toString() }));
+}
+
+export async function getItemCodesByFactorySection(factoryId: string, sectionId: string, itemType?: 'RM' | 'SFG' | 'FG') {
+  const url = new URL(`${API_BASE_URL}/itemmasters/`);
+  url.searchParams.set('building', sectionId);
+  if (itemType) url.searchParams.set('item_type', itemType);
+  const res = await fetch(url.toString());
+  if (!res.ok) return [] as { label: string; value: string }[];
+  const data = await res.json();
+  console.log('[API] itemmasters by building', { factoryId, sectionId, itemType, sample: data?.[0] });
+  return (Array.isArray(data) ? data : []).map((ic: any) => ({
+    label: ic.item_code,
+    value: ic.item_code,
+  }));
 }
 
 export async function getFilteredInspections(filters: {
@@ -89,20 +101,51 @@ export async function getFilteredInspections(filters: {
   type: 'Inward' | 'In-process' | 'Final';
   poId: string;
 }) {
-  return inspections.filter(i =>
-    i.factoryId === filters.factoryId &&
-    i.section === filters.section &&
-    i.itemCode === filters.itemCode &&
-    i.type === filters.type &&
-    i.poId === filters.poId
-  );
+  const params = new URLSearchParams({
+    plant_id: filters.factoryId.toString(),
+    building: filters.section,
+    item_code: filters.itemCode,
+    inspection_type: filters.type,
+    po_no: filters.poId,
+  });
+  const inspectionsRes = await fetch(`${API_BASE_URL}/inspectionschedules/?${params.toString()}`);
+  const inspections = await inspectionsRes.json();
+  return inspections.map((i: any) => ({
+    id: i.id,
+    factoryId: i.plant_id,
+    section: i.building,
+    itemCode: i.item_code,
+    type: i.inspection_type,
+    poId: i.po_no,
+    operationName: i.operation,
+    parameters: [{
+      name: i.inspection_parameter_name,
+      value: i.target_value,
+      unit: '', // Assuming unit is not directly available in MasterInspectionschedule
+      timestamp: i.created_at,
+      lsl: i.lsl,
+      usl: i.usl,
+    }]
+  }));
 }
 
 export async function getParameterAnalysis(factoryId: number, itemCode: string, operation: string, parameter: string) {
-  const relevantParams = inspections
-    .filter(i => i.factoryId === factoryId && i.itemCode === itemCode && i.operationName === operation)
-    .flatMap(i => i.parameters)
-    .filter(p => p.name === parameter);
+  const params = new URLSearchParams({
+    plant_id: factoryId.toString(),
+    item_code: itemCode,
+    operation: operation,
+    inspection_parameter_name: parameter,
+  });
+  const inspectionsRes = await fetch(`${API_BASE_URL}/inspectionschedules/?${params.toString()}`);
+  const inspections = await inspectionsRes.json();
+
+  const relevantParams = inspections.map((i: any) => ({
+    value: i.target_value,
+    unit: '', // Placeholder
+    operator: i.created_by, // Assuming created_by is the operator
+    lsl: i.lsl,
+    usl: i.usl,
+  }));
 
   if (relevantParams.length === 0) return null;
 
@@ -125,13 +168,19 @@ export async function getParameterAnalysis(factoryId: number, itemCode: string, 
 }
 
 export async function getParameterDistribution(context: 'Inward' | 'In-process' | 'Final', factoryId: number, section: string, itemCode: string) {
-    const relevantInspections = inspections
-        .filter(i => i.type === context && i.factoryId === factoryId && i.section === section && i.itemCode === itemCode);
+    const params = new URLSearchParams({
+        inspection_type: context,
+        plant_id: factoryId.toString(),
+        building: section,
+        item_code: itemCode,
+    });
+    const inspectionsRes = await fetch(`${API_BASE_URL}/inspectionschedules/?${params.toString()}`);
+    const inspections = await inspectionsRes.json();
 
-    if (relevantInspections.length === 0) return null;
+    if (inspections.length === 0) return null;
 
-    const operations = relevantInspections.map(i => i.operationName).filter(Boolean);
-    const parameters = relevantInspections.flatMap(i => i.parameters.map(p => p.name));
+    const operations = inspections.map((i: any) => i.operation).filter(Boolean);
+    const parameters = inspections.map((i: any) => i.inspection_parameter_name);
 
     return {
         'Operations': [...new Set(operations)].join(', '),
@@ -139,7 +188,6 @@ export async function getParameterDistribution(context: 'Inward' | 'In-process' 
     };
 }
 
-// Returns time-series, stats, spec lines, and readings for a given parameter
 export async function getParameterSeriesAndStats(
   factoryId: number,
   itemCode: string,
@@ -150,45 +198,28 @@ export async function getParameterSeriesAndStats(
   const now = new Date();
   const cutoff = days ? subDays(now, days) : null;
 
-  const baseReadings = inspections
-    .filter(
-      (i) => i.factoryId === factoryId && i.itemCode === itemCode && i.operationName === operation
-    )
-    .flatMap((i) =>
-      i.parameters
-        .filter((p) => p.name === parameter)
-        .map((p) => ({ ...p }))
-    )
-    .sort((a, b) => parseISO(a.timestamp).getTime() - parseISO(b.timestamp).getTime());
+  const params = new URLSearchParams({
+    plant_id: factoryId.toString(),
+    item_code: itemCode,
+    operation: operation,
+    inspection_parameter_name: parameter,
+  });
+  const inspectionsRes = await fetch(`${API_BASE_URL}/inspectionschedules/?${params.toString()}`);
+  const inspections = await inspectionsRes.json();
 
-  let readings = baseReadings.filter((p) => (cutoff ? isAfter(parseISO(p.timestamp), cutoff) : true));
+  let readings = inspections.map((i: any) => ({
+    name: i.inspection_parameter_name,
+    value: i.target_value,
+    unit: '', // Placeholder
+    operator: i.created_by, // Assuming created_by is the operator
+    timestamp: i.created_at,
+    lsl: i.lsl,
+    usl: i.usl,
+    target: i.target_value,
+  })).filter((p) => (cutoff ? isAfter(parseISO(p.timestamp), cutoff) : true))
+  .sort((a, b) => parseISO(a.timestamp).getTime() - parseISO(b.timestamp).getTime());
 
-  // If time filter removed all points, fall back to all-time readings
-  if (readings.length === 0 && baseReadings.length > 0) {
-    readings = baseReadings;
-  }
-
-  // If still none, synthesize a short series using SPEC_MAP if available
-  if (readings.length === 0) {
-    const key = `${operation}::${parameter}`;
-    const specFallback = SPEC_MAP[key];
-    const unit = specFallback?.unit || '';
-    const lsl = specFallback?.lsl ?? 0;
-    const usl = specFallback?.usl ?? 100;
-    const target = specFallback?.target ?? (lsl + usl) / 2;
-    const span = Math.max(1, usl - lsl);
-    const candidates = [lsl + 0.1 * span, target - 0.05 * span, target, target + 0.05 * span, usl - 0.1 * span, target];
-    readings = candidates.map((v, idx) => ({
-      name: parameter,
-      value: Number(v),
-      unit,
-      operator: 'System',
-      timestamp: format(parseISO(new Date().toISOString()), 'yyyy-MM-dd') + `T00:00:00.000Z`,
-      lsl: specFallback?.lsl,
-      usl: specFallback?.usl,
-      target: specFallback?.target,
-    } as any));
-  }
+  if (readings.length === 0) return null;
 
   const values = readings.map((r) => r.value);
   const min = Math.min(...values);
@@ -196,21 +227,12 @@ export async function getParameterSeriesAndStats(
   const avg = values.reduce((s, v) => s + v, 0) / values.length;
   const unit = readings[0].unit;
 
-  // Pick first occurrence that has spec values, if any
-  const specSource = readings.find((r) => r.lsl !== undefined || r.usl !== undefined || r.target !== undefined);
-  let spec = {
-    lsl: specSource?.lsl,
-    usl: specSource?.usl,
-    target: specSource?.target,
+  const spec = {
+    lsl: readings[0].lsl,
+    usl: readings[0].usl,
+    target: readings[0].target,
     unit,
-  } as { lsl?: number; usl?: number; target?: number; unit?: string };
-
-  if (spec.lsl === undefined && spec.usl === undefined) {
-    const key = `${operation}::${parameter}`;
-    if (SPEC_MAP[key]) {
-      spec = { ...spec, ...SPEC_MAP[key] };
-    }
-  }
+  };
 
   const enriched = readings.map((r) => {
     const isOOS = (spec.lsl !== undefined && r.value < spec.lsl) || (spec.usl !== undefined && r.value > spec.usl);
@@ -251,11 +273,13 @@ export async function getLSLUSLDistribution(
   days?: number
 ) {
   const analysis = await getParameterSeriesAndStats(factoryId, itemCode, operation, parameter, days);
+  if (!analysis) return null;
+
   // derive LSL/USL if missing
-  let lsl = analysis?.spec.lsl;
-  let usl = analysis?.spec.usl;
+  let lsl = analysis.spec.lsl;
+  let usl = analysis.spec.usl;
   if (lsl === undefined || usl === undefined || usl === lsl) {
-    const vals = (analysis?.readings || []).map((r) => r.value);
+    const vals = (analysis.readings || []).map((r) => r.value);
     if (vals.length > 0) {
       const min = Math.min(...vals);
       const max = Math.max(...vals);
@@ -283,7 +307,7 @@ export async function getLSLUSLDistribution(
   };
 
   const span = (usl! - lsl!);
-  (analysis?.readings || []).forEach((r) => {
+  (analysis.readings || []).forEach((r) => {
     if (lsl !== undefined && r.value < lsl) {
       counts['<LSL'] += 1;
       return;
