@@ -6,7 +6,10 @@ from django.db.models import Q
 from .models import (
     MasterPlantmaster, MasterProductionplanner, MasterItemmaster, 
     MasterParameterlist, MasterOperationmaster, MasterBuildingsectionlab, 
-    User, RbacRole, MasterInspectionschedule
+    User, RbacRole, MasterInspectionschedule,
+    MasterRminspectionreading, MasterRmactualreading,
+    MasterInprocessinspectionreading, MasterInprocessactualreading,
+    MasterFaiinspectionschedule, MasterFaiinspectionreading, MasterFaiactualreading
 )
 from .serializers import (
     MasterPlantmasterSerializer, MasterProductionplannerSerializer, MasterItemmasterSerializer, 
