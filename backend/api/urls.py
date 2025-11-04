@@ -36,6 +36,7 @@ urlpatterns = [
     path('factories/<str:factory_id>/sections/', SectionsByFactoryView.as_view(), name='factory-sections'),
     path('purchase-orders/<str:po_id>/status/', PurchaseOrderStatusView.as_view(), name='po-status'),
     path('inspections/filter/', InspectionsFilterView.as_view(), name='inspections-filter'),
+    path('inspections/actual-readings/', ActualInspectionReadingsView.as_view(), name='actual-inspection-readings'),
     path('parameters/series-and-stats/', ParameterSeriesAndStatsView.as_view(), name='parameters-series-and-stats'),
     path('parameters/distribution/', ParameterDistributionView.as_view(), name='parameters-distribution'),
 ]
