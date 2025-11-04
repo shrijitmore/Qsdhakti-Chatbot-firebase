@@ -16,6 +16,7 @@ from .views import (
     InspectionsFilterView,
     ParameterSeriesAndStatsView,
     ParameterDistributionView,
+    ActualInspectionReadingsView,
 )
 
 router = DefaultRouter()
