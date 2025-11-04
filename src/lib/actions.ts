@@ -224,20 +224,37 @@ export async function getParameterSeriesAndStats(
     plant_id: factoryId.toString(),
     item_code: itemCode,
     operation: operation,
-    inspection_parameter_name: parameter,
+    parameter_name: parameter,
   });
-  const inspectionsRes = await fetch(`${API_BASE_URL}/inspectionschedules/?${params.toString()}`);
-  const inspections = await inspectionsRes.json();
+  
+  // Fetch actual readings from all inspection types
+  const results = [];
+  for (const inspType of ['Inward', 'In-process', 'Final']) {
+    const typeParams = new URLSearchParams(params);
+    typeParams.set('inspection_type', inspType);
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/inspections/actual-readings/?${typeParams.toString()}`);
+      const data = await res.json();
+      if (data.readings) {
+        results.push(...data.readings);
+      }
+    } catch (e) {
+      console.error(`[API] Error fetching ${inspType} readings:`, e);
+    }
+  }
 
-  let readings = inspections.map((i: any) => ({
-    name: i.inspection_parameter_name,
-    value: i.target_value,
-    unit: '', // Placeholder
-    operator: i.created_by, // Assuming created_by is the operator
-    timestamp: i.created_at,
-    lsl: i.lsl,
-    usl: i.usl,
-    target: i.target_value,
+  console.log('[API] parameter series actual readings:', results.length);
+
+  let readings = results.map((r: any) => ({
+    name: r.parameter_name,
+    value: r.r_value,  // Use actual r_value
+    unit: r.unit || '',
+    operator: r.operator,
+    timestamp: r.timestamp,
+    lsl: r.lsl,
+    usl: r.usl,
+    target: r.target_value,
   })).filter((p) => (cutoff ? isAfter(parseISO(p.timestamp), cutoff) : true))
   .sort((a, b) => parseISO(a.timestamp).getTime() - parseISO(b.timestamp).getTime());
 
