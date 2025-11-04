@@ -187,3 +187,177 @@ class MasterInspectionschedule(models.Model):
 
     class Meta:
         db_table = 'master_inspectionschedule'
+
+
+# RM (Raw Material / Inward) Inspection Reading Models
+class MasterRminspectionreading(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    remarks = models.CharField(max_length=255, blank=True, null=True)
+    attachment_document = models.CharField(max_length=100, blank=True, null=True)
+    io_no = models.CharField(max_length=100, blank=True, null=True)
+    input_type = models.CharField(max_length=100, blank=True, null=True)
+    machine_id = models.CharField(max_length=100, blank=True, null=True)
+    created_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterrminspectionreading_created_by_set')
+    insp_schedule_id = models.ForeignKey(MasterInspectionschedule, models.DO_NOTHING)
+    updated_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterrminspectionreading_updated_by_set')
+
+    class Meta:
+        db_table = 'master_rminspectionreading'
+
+
+class MasterRmactualreading(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    r_key = models.CharField(max_length=100, blank=True, null=True)
+    r_value = models.FloatField(blank=True, null=True)
+    created_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterrmactualreading_created_by_set')
+    updated_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterrmactualreading_updated_by_set')
+    reading_id = models.ForeignKey(MasterRminspectionreading, models.DO_NOTHING)
+
+    class Meta:
+        db_table = 'master_rmactualreading'
+
+
+# In-process Inspection Reading Models
+class MasterInprocessinspectionreading(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    remarks = models.CharField(max_length=255, blank=True, null=True)
+    attachment_document = models.CharField(max_length=100, blank=True, null=True)
+    po_no = models.CharField(max_length=100, blank=True, null=True)
+    input_type = models.CharField(max_length=100, blank=True, null=True)
+    machine_id = models.CharField(max_length=100, blank=True, null=True)
+    created_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterinprocessinspectionreading_created_by_set')
+    updated_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterinprocessinspectionreading_updated_by_set')
+    insp_schedule_id = models.ForeignKey(MasterInspectionschedule, models.DO_NOTHING)
+
+    class Meta:
+        db_table = 'master_inprocessinspectionreading'
+
+
+class MasterInprocessactualreading(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    r_key = models.CharField(max_length=100, blank=True, null=True)
+    r_value = models.FloatField(blank=True, null=True)
+    created_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterinprocessactualreading_created_by_set')
+    updated_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterinprocessactualreading_updated_by_set')
+    reading_id = models.ForeignKey(MasterInprocessinspectionreading, models.DO_NOTHING)
+
+    class Meta:
+        db_table = 'master_inprocessactualreading'
+
+
+# FAI (Final) Inspection Schedule Model
+class MasterFaiinspectionschedule(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    end_store = models.CharField(max_length=255, blank=True, null=True)
+    inspection_parameter_name = models.CharField(max_length=255, blank=True, null=True)
+    short_text = models.CharField(max_length=255, blank=True, null=True)
+    inspection_type = models.CharField(max_length=255, blank=True, null=True)
+    lsl = models.FloatField(db_column='LSL', blank=True, null=True)
+    target_value = models.FloatField(blank=True, null=True)
+    usl = models.FloatField(db_column='USL', blank=True, null=True)
+    sample_size = models.IntegerField(blank=True, null=True)
+    inspection_frequency = models.CharField(max_length=255, blank=True, null=True)
+    inspection_method = models.CharField(max_length=255, blank=True, null=True)
+    machine_type = models.CharField(max_length=255, blank=True, null=True)
+    recording_type = models.CharField(max_length=255, blank=True, null=True)
+    attachment_document = models.CharField(max_length=100, blank=True, null=True)
+    control_limit = models.CharField(max_length=255, blank=True, null=True)
+    likely_defects_classification = models.CharField(max_length=255, blank=True, null=True)
+    remarks = models.CharField(max_length=255, blank=True, null=True)
+    building = models.ForeignKey(MasterBuildingsectionlab, models.DO_NOTHING)
+    created_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterfaiinspectionschedule_created_by_set')
+    updated_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterfaiinspectionschedule_updated_by_set')
+    item_code = models.ForeignKey('MasterFaiitemmaster', models.DO_NOTHING)
+    operation = models.ForeignKey('MasterFaioperationmaster', models.DO_NOTHING, blank=True, null=True)
+    inspection_parameter_id = models.ForeignKey(MasterParameterlist, models.DO_NOTHING)
+    plant_id = models.ForeignKey(MasterPlantmaster, models.DO_NOTHING)
+
+    class Meta:
+        db_table = 'master_faiinspectionschedule'
+
+
+# FAI Inspection Reading Models
+class MasterFaiinspectionreading(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    remarks = models.CharField(max_length=255, blank=True, null=True)
+    attachment_document = models.CharField(max_length=100, blank=True, null=True)
+    po_no = models.CharField(max_length=100, blank=True, null=True)
+    input_type = models.CharField(max_length=100, blank=True, null=True)
+    machine_id = models.CharField(max_length=250, blank=True, null=True)
+    created_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterfaiinspectionreading_created_by_set')
+    updated_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterfaiinspectionreading_updated_by_set')
+    insp_schedule_id = models.ForeignKey(MasterFaiinspectionschedule, models.DO_NOTHING)
+
+    class Meta:
+        db_table = 'master_faiinspectionreading'
+
+
+class MasterFaiactualreading(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    r_key = models.CharField(max_length=100, blank=True, null=True)
+    r_value = models.FloatField(blank=True, null=True)
+    created_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterfaiactualreading_created_by_set')
+    updated_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterfaiactualreading_updated_by_set')
+    reading_id = models.ForeignKey(MasterFaiinspectionreading, models.DO_NOTHING)
+
+    class Meta:
+        db_table = 'master_faiactualreading'
+
+
+# FAI Item and Operation Master Models (needed for FAI schedule foreign keys)
+class MasterFaiitemmaster(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    item_code = models.CharField(max_length=255)
+    item_description = models.CharField(max_length=255, blank=True, null=True)
+    unit = models.CharField(max_length=255, blank=True, null=True)
+    item_type = models.CharField(max_length=255, blank=True, null=True)
+    end_store = models.CharField(max_length=255, blank=True, null=True)
+    building = models.ForeignKey(MasterBuildingsectionlab, models.DO_NOTHING)
+    created_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterfaiitemmaster_created_by_set')
+    updated_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterfaiitemmaster_updated_by_set')
+    plant = models.ForeignKey(MasterPlantmaster, models.DO_NOTHING)
+
+    class Meta:
+        db_table = 'master_faiitemmaster'
+
+
+class MasterFaioperationmaster(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    operation_id = models.CharField(max_length=255)
+    operation_name = models.CharField(max_length=255, blank=True, null=True)
+    operation_description = models.CharField(max_length=255, blank=True, null=True)
+    building = models.ForeignKey(MasterBuildingsectionlab, models.DO_NOTHING)
+    created_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterfaioperationmaster_created_by_set')
+    item_code = models.ForeignKey(MasterFaiitemmaster, models.DO_NOTHING)
+    updated_by = models.ForeignKey('User', models.DO_NOTHING, blank=True, null=True, related_name='masterfaioperationmaster_updated_by_set')
+    plant = models.ForeignKey(MasterPlantmaster, models.DO_NOTHING)
+
+    class Meta:
+        db_table = 'master_faioperationmaster'
