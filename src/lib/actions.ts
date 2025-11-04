@@ -210,13 +210,17 @@ export async function getParameterDistribution(context: 'Inward' | 'In-process' 
         building: section,
         item_code: itemCode,
     });
-    const inspectionsRes = await fetch(`${API_BASE_URL}/inspectionschedules/?${params.toString()}`);
-    const inspections = await inspectionsRes.json();
+    
+    // Fetch actual readings
+    const res = await fetch(`${API_BASE_URL}/inspections/actual-readings/?${params.toString()}`);
+    const data = await res.json();
+    
+    console.log('[API] parameter distribution actual readings:', data);
 
-    if (inspections.length === 0) return null;
+    if (!data.readings || data.readings.length === 0) return null;
 
-    const operations = inspections.map((i: any) => i.operation).filter(Boolean);
-    const parameters = inspections.map((i: any) => i.inspection_parameter_name);
+    const operations = data.readings.map((r: any) => r.operation_name).filter(Boolean);
+    const parameters = data.readings.map((r: any) => r.parameter_name).filter(Boolean);
 
     return {
         'Operations': [...new Set(operations)].join(', '),
