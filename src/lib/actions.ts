@@ -73,6 +73,18 @@ export async function getPurchaseOrdersByFactory(factoryId: string) {
   }));
 }
 
+export async function getPurchaseOrdersByFactoryAndItem(sectionId: string, itemId: string) {
+  const url = new URL(`${API_BASE_URL}/productionplanners/by-factory-item/`);
+  url.searchParams.set('section', sectionId);
+  url.searchParams.set('item_id', itemId);
+  const res = await fetch(url.toString());
+  if (!res.ok) return [] as { label: string; value: string }[];
+  const data = await res.json();
+  const orders = Array.isArray(data?.orders) ? data.orders : [];
+  console.log('[API] productionplanners by section+item', { sectionId, itemId, count: orders.length });
+  return orders.map((id: string) => ({ label: id, value: id }));
+}
+
 export async function getFactorySections(factoryId: number): Promise<Option[]> {
   const sectionsRes = await fetch(`${API_BASE_URL}/buildingsectionlabs/?plant=${factoryId}`);
   const sections = await sectionsRes.json();
@@ -81,17 +93,15 @@ export async function getFactorySections(factoryId: number): Promise<Option[]> {
 }
 
 export async function getItemCodesByFactorySection(factoryId: string, sectionId: string, itemType?: 'RM' | 'SFG' | 'FG') {
-  const url = new URL(`${API_BASE_URL}/itemmasters/`);
+  const url = new URL(`${API_BASE_URL}/itemcodes/by-building/`);
   url.searchParams.set('building', sectionId);
   if (itemType) url.searchParams.set('item_type', itemType);
   const res = await fetch(url.toString());
   if (!res.ok) return [] as { label: string; value: string }[];
   const data = await res.json();
-  console.log('[API] itemmasters by building', { factoryId, sectionId, itemType, sample: data?.[0] });
-  return (Array.isArray(data) ? data : []).map((ic: any) => ({
-    label: ic.item_code,
-    value: ic.item_code,
-  }));
+  console.log('[API] itemcodes by building', { factoryId, sectionId, itemType, sample: data?.items?.[0] });
+  const items = Array.isArray(data?.items) ? data.items : [];
+  return items.map((ic: any) => ({ label: ic.item_code, value: String(ic.id) }));
 }
 
 export async function getFilteredInspections(filters: {
